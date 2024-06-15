@@ -147,7 +147,6 @@ function convert() {
 	channels = Object.values(channels);
 	let keySig = new Array(12).fill(0);
 	let averages = new Array(channels.length).fill(0);
-	let channelsMap = {};
 	let average = 0;
 	let total = 0;
 	let nonZeroes = 0;
@@ -156,7 +155,6 @@ function convert() {
 
 	for (let track of channels) {
 		const size = track.length;
-		channelsMap[track[0].channel] = currentTrack;
 		track.forEach(data => {
 			keySig[data.note % 12] += 1;
 			averages[currentTrack] += data.note;
@@ -197,7 +195,7 @@ function convert() {
 		}
 	}
 
-	let trackTransposes = new Array(averages.length).fill(0);
+	let trackTransposes = new Array(channels.length).fill(0);
 
 	if (normalize) {
 		if (nonZeroes > 1) {
@@ -215,16 +213,17 @@ function convert() {
 	}
 
 	midi.forEach(arr => {
-		arr = arr.sort((a,b) =>  a.note - b.note);
+		arr = arr.map(data => data.note + transpose + trackTransposes[data.channel] - 12);
+		arr = [...new Set(arr.sort())];
 		if (removeOct) {
 			let taken = [];
-			arr = arr.filter(data => {
-				if (taken[data.note % 12]) {
+			arr = arr.reverse().filter(note => {
+				if (taken[note % 12]) {
 					return false;
 				}
-				taken[data.note % 12] = true;
+				taken[note % 12] = true;
 				return true;
-			});
+			}).reverse();
 		}
 
 		if (removeChords) {
@@ -233,12 +232,11 @@ function convert() {
 		}
 
 		let idealShift = 0;
-		let lowestNote = arr[0].note;
-		let highestNote = arr.slice(-1)[0].note;
+		let lowestNote = arr[0] + 24 - 56;
+		let highestNote = arr.slice(-1)[0] + 24 - 56;
 
-		arr.forEach(data => {
-			let note = data.note;
-			note += transpose + trackTransposes[channelsMap[data.channel]] - 12 - 32;
+		arr.forEach(note => {
+			note -= 32;
 			let necessaryShift = note >= notes.length ? ((note - notes.length) / 12 + 1)^0 : note < 0 ? ((note + 1) / 12 - 1)^0 : 0;
 			if (necessaryShift != 0) {
 				if (necessaryShift > 0) {
@@ -251,8 +249,7 @@ function convert() {
 		if (((lessShifting) && (lowestNote >= 12 * lastUsedShift) && (highestNote < notes.length + 12 * lastUsedShift) && (lastUsedShift > 0)) || ((lowestNote >= 12 * lastUsedShift) && (highestNote < notes.length + 12 * lastUsedShift) && (lastUsedShift < 0))) {
 			idealShift = lastUsedShift;
 		}
-		arr.forEach(data => {
-			let note = data.note + transpose + trackTransposes[channelsMap[data.channel]] - 12;
+		arr.forEach(note => {
 			let lastLastUsedShift = lastUsedShift;
 			let newNote = printKey(note, idealShift);
 			if ((lastUsedShift != lastLastUsedShift) && (lastUsedShift != idealShift)) {
@@ -295,9 +292,9 @@ function modifyShift(index, shift) {
 			case 1: 
 				return upper[index];
 			case 2: 
-				return old ? upper[index] + "\"" : "\"" + upper[index];
-			case 3: 
 				return old ? upper[index] + "`" : "`" + upper[index];
+			case 3: 
+				return old ? upper[index] + "\"" : "\"" + upper[index];
 			case -1: 
 				return old ? notes[index] + "\"" : "\"" + notes[index];
 			case -2: 
