@@ -147,6 +147,7 @@ function convert() {
 	channels = Object.values(channels);
 	let keySig = new Array(12).fill(0);
 	let averages = new Array(channels.length).fill(0);
+	let channelsMap = {};
 	let average = 0;
 	let total = 0;
 	let nonZeroes = 0;
@@ -155,6 +156,7 @@ function convert() {
 
 	for (let track of channels) {
 		const size = track.length;
+		channelsMap[track[0].channel] = currentTrack;
 		track.forEach(data => {
 			keySig[data.note % 12] += 1;
 			averages[currentTrack] += data.note;
@@ -213,7 +215,7 @@ function convert() {
 	}
 
 	midi.forEach(arr => {
-		arr = arr.map(data => data.note + transpose + trackTransposes[data.channel] - 12);
+		arr = arr.map(data => data.note + transpose + trackTransposes[channelsMap[data.channel]] - 12);
 		arr = [...new Set(arr.sort())];
 		if (removeOct) {
 			let taken = [];
